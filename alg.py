@@ -114,9 +114,31 @@ def prepare_orientation_constraints(
         orientation_constraint_reversed.SetCoefficient(orientation_variable_reversed, 1)
 
 
-def prepare_flow_variables(solver: pywraplp.Solver, sources: list[str]):
+def prepare_flow_variables(
+    solver: pywraplp.Solver,
+    graph: MixedGraph[str],
+    sources: list[str],
+    orientations: dict[tuple[str, str], pywraplp.Variable],
+):
     for source in sources:
-        pass
+        edges: list[tuple[str, str]] = []
+        paths: list[list[str]] = []
+        for target in graph.neighbors(source):
+            path = graph.dijkstra(source, target, "weight")
+            paths.append(path)
+
+        for path in paths:
+            for i, s in enumerate(path):
+                t = path[i + 1]
+                edges.append((s, t))
+
+        for s, t in edges:
+            # We first add edge flow s.t. it must be positive
+            edge_variable = solver.NumVar(0, solver.Infinity, f"edge-{s}-{t}")
+            solver.Add(0 < edge_variable)
+
+            # then, restrict edge flow
+            solver.Add(edge_variable <= orientations[(s, t)])
 
 
 def prepare_closure_variables(
